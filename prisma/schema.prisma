@@ -1,0 +1,125 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Campaign {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  targetIndustry  String
+  status          CampaignStatus @default(ACTIVE)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  prospects       Prospect[]
+  messageTemplate MessageTemplate?
+  analytics       CampaignAnalytics?
+}
+
+enum CampaignStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+model Prospect {
+  id              String   @id @default(cuid())
+  linkedinUrl     String   @unique
+  firstName       String
+  lastName        String
+  headline        String?
+  industry        String
+  company         String?
+  location        String?
+  
+  status          ProspectStatus @default(PENDING)
+  connectionSentAt DateTime?
+  connectedAt     DateTime?
+  lastContactedAt DateTime?
+  
+  campaignId      String
+  campaign        Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  
+  outreach        OutreachHistory[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([campaignId])
+  @@index([status])
+}
+
+enum ProspectStatus {
+  PENDING
+  CONNECTION_SENT
+  CONNECTED
+  MESSAGE_SENT
+  REPLIED
+  NOT_INTERESTED
+  CONVERTED
+}
+
+model MessageTemplate {
+  id              String   @id @default(cuid())
+  campaignId      String   @unique
+  campaign        Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  
+  industry        String
+  connectionMsg   String
+  followUp1       String
+  followUp2       String?
+  followUp3       String?
+  
+  followUp1Delay  Int      @default(3)  // days
+  followUp2Delay  Int?     @default(7)
+  followUp3Delay  Int?     @default(14)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model OutreachHistory {
+  id              String   @id @default(cuid())
+  prospectId      String
+  prospect        Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  
+  type            OutreachType
+  message         String
+  sentAt          DateTime @default(now())
+  response        String?
+  respondedAt     DateTime?
+  
+  @@index([prospectId])
+  @@index([sentAt])
+}
+
+enum OutreachType {
+  CONNECTION_REQUEST
+  FIRST_MESSAGE
+  FOLLOW_UP_1
+  FOLLOW_UP_2
+  FOLLOW_UP_3
+}
+
+model CampaignAnalytics {
+  id                    String   @id @default(cuid())
+  campaignId            String   @unique
+  campaign              Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  
+  totalProspects        Int      @default(0)
+  connectionsSent       Int      @default(0)
+  connectionsAccepted   Int      @default(0)
+  messagesSent          Int      @default(0)
+  repliesReceived       Int      @default(0)
+  conversions           Int      @default(0)
+  
+  connectionRate        Float    @default(0)
+  responseRate          Float    @default(0)
+  conversionRate        Float    @default(0)
+  
+  lastUpdated           DateTime @updatedAt
+}
